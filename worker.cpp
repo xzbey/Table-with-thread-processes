@@ -28,7 +28,7 @@ void Worker::run() {
         if (num == 0 or num == 1) {
             emit progressUpdated(100);
             emit statusUpdated("Результат: " + QString::number(num));
-            emit finished();
+            emit finished(resultNum);
             return;
         }
 
@@ -74,5 +74,5 @@ void Worker::run() {
         emit statusUpdated("Результат: " + QString::number(resultNum));
         emit progressUpdated(100);
     }
-    emit finished();
+    emit finished(resultNum);
 }

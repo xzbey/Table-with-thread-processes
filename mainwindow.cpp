@@ -7,6 +7,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     ui->tableWidget->setWordWrap(true);
+    ui->label_resultAll->setVisible(0);
 }
 
 MainWindow::~MainWindow()
@@ -25,6 +26,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pB_add_clicked()
 {
+    ui->label_resultAll->setVisible(0);
     ProcessInfo* info = new ProcessInfo(ui->cB_pickFunc->currentText(), ui->dSB_num->value());
 
     int rowCount = ui->tableWidget->rowCount();
@@ -48,6 +50,7 @@ void MainWindow::on_pB_add_clicked()
 
 void MainWindow::on_pB_start_clicked()
 {
+    ui->label_resultAll->setVisible(0);
     int row = ui->tableWidget->currentRow();
     if (row < 0) {
         QMessageBox::warning(this, "Ошибка", "Процесс не выбран");
@@ -78,12 +81,20 @@ void MainWindow::on_pB_start_clicked()
         info->worker = nullptr;
     });
 
+    connect(info->worker, &Worker::finished, this, [=](long long resultN) {
+        QMutexLocker locker(&mutex);
+        resultSum += resultN;
+        ui->label_resultAll->setText("Сумма: " + QString::number(resultSum));
+        info->worker = nullptr;
+    });
+
     info->worker->start();
 }
 
 
 void MainWindow::on_pB_pause_clicked()
 {
+    ui->label_resultAll->setVisible(0);
     int row = ui->tableWidget->currentRow();
     if (row < 0) {
         QMessageBox::warning(this, "Ошибка", "Процесс не выбран");
@@ -102,6 +113,7 @@ void MainWindow::on_pB_pause_clicked()
 
 void MainWindow::on_pB_stop_clicked()
 {
+    ui->label_resultAll->setVisible(0);
     int row = ui->tableWidget->currentRow();
     if (row < 0) {
         QMessageBox::warning(this, "Ошибка", "Процесс не выбран");
@@ -119,6 +131,7 @@ void MainWindow::on_pB_stop_clicked()
 
 void MainWindow::on_pB_delete_clicked()
 {
+    ui->label_resultAll->setVisible(0);
     int row = ui->tableWidget->currentRow();
     if (row < 0) {
         QMessageBox::warning(this, "Ошибка", "Процесс не выбран");
@@ -141,3 +154,49 @@ void MainWindow::on_pB_delete_clicked()
     ui->tableWidget->removeRow(row);
 }
 
+
+void MainWindow::on_pB_startAll_clicked()
+{
+    ui->label_resultAll->setVisible(1);
+    ui->label_resultAll->setText("Сумма: 0");
+
+    {QMutexLocker locker(&mutex);
+        resultSum = 0;}
+
+    QSet<int> exceptions; //уже запущенные
+    for (int i = 0; i < processes.size(); i++) {
+        ProcessInfo* info = processes[i];
+        if (info->worker != nullptr) {
+            exceptions.insert(i);
+            continue;
+        }
+
+
+        info->worker = new Worker(info->funcName, info->value);
+
+        connect(info->worker, &Worker::progressUpdated, this, [=](int value) {
+            if (QProgressBar* bar = qobject_cast<QProgressBar*>(ui->tableWidget->cellWidget(i, 2)))
+                bar->setValue(value);
+        });
+
+        connect(info->worker, &Worker::statusUpdated, this, [=](QString status) {
+            info->status = status;
+            ui->tableWidget->item(i, 3)->setText(status);
+        });
+
+        connect(info->worker, &Worker::finished, info->worker, &QObject::deleteLater);
+
+        connect(info->worker, &Worker::finished, this, [=](long long resultN) {
+            QMutexLocker locker(&mutex);
+            resultSum += resultN;
+            ui->label_resultAll->setText("Сумма: " + QString::number(resultSum));
+            info->worker = nullptr;
+        });
+    }
+
+    for (int i = 0; i < processes.size(); i++) {
+        if (exceptions.contains(i))
+            continue;
+        processes[i]->worker->start();
+    }
+}

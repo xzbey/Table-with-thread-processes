@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QMessageBox>
 #include <QDebug>
+#include <QMutex>
 #include "processinfo.h"
 
 
@@ -34,9 +35,12 @@ private slots:
 
     void on_pB_delete_clicked();
 
+    void on_pB_startAll_clicked();
+
 private:
     Ui::MainWindow *ui;
     QVector<ProcessInfo*> processes;
-
+    long long resultSum;
+    QMutex mutex;
 };
 #endif // MAINWINDOW_H
