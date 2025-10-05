@@ -23,7 +23,7 @@ protected:
 signals:
     void progressUpdated(int percent);
     void statusUpdated(QString status);
-    void finished();
+    void finished(long long resultN);
 
 
 private:
